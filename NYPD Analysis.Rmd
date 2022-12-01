@@ -1,0 +1,95 @@
+---
+title: "NYPD Shooting Incident"
+author: "TSP"
+date: "10/29/2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+#Peer-graded Assignement: NYPD Shooting Incident Data Report
+
+Assignment Tasks:
+Import, tidy and analyze the NYPD Shooting Incident dataset obtained. Be sure your project is reproducible and contains some visualization and analysis.You may use the data to do any analysis that is of interest to you. You should include at least two visualizations and one model. Be sure to identify any bias possible in the data and in your analysis.
+
+
+#Step 1: Install packages and enable the package required for data analysis
+```{r setup, include=TRUE, cache = FALSE}
+library(tidyverse)
+library(factoextra)
+library(sf)
+```
+
+
+#Step 2: Gether NYPD Shooting incident data in the csv. format from the URL
+The data is a plubic data which is avialble in Data Gov. To access the data you can go to https://catalog.data.gov/dataset  and find the dataset titled NYPD Shooting Incident Data (Historic).  Here I have copied the URL link of the data in csv format and you r command to download it for futher analysis.
+```{r load, include=TRUE, cache = FALSE}
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+NYPD_shooting_incident <- read_csv(url_in)
+```
+
+
+#Step 3: Perform basic analysis and data cleansing 
+```{r Analysis, include=TRUE, cache = FALSE}
+#Simply remove na value from the dataset
+NYPD_shooting_incident <- na.omit(NYPD_shooting_incident)
+#Check column name
+names(NYPD_shooting_incident)
+#Check summary statistic 
+summary(NYPD_shooting_incident)
+```
+
+#Step 4: Subsetting and Build a clustering  model 
+I will use only lat and lon columns to perform geospatial clustering based on location (lat,lon). So, the first step I will subsetting data and then perform Basic K-mean clustering 
+```{r manipulation, include=TRUE, cache = FALSE}
+# Sub-setting the NYPD data to be only lat and lon
+df <- NYPD_shooting_incident[,17:18]
+
+# Set the seed for reproducible
+set.seed(123)
+#Find the optimal k with silhouette method
+fviz_nbclust(df, kmeans, method = "silhouette")
+#Perfrom kmean based on kmean clustering
+final <- kmeans(df, 3)
+#print(final)
+```
+
+#Step 5: Visualize the cluster data based on analysis above. 
+```{r Visualizarionn, include=TRUE, cache = FALSE}
+# Visualize the cluster that I have performed above with fviz_cluster function.
+fviz_cluster(final, data = df, geom="point")
+
+#Convert data to geospatial format with sf library
+crimes_sf <- st_as_sf(NYPD_shooting_incident,                                    
+                      coords = c("Longitude", "Latitude"),        
+                      crs = 4326) 
+
+#Plot geospatial location (lat,lon) and project to map with ggplot and geom_sf
+class(crimes_sf)
+ggplot() + 
+  geom_sf(data = crimes_sf)
+```
+#Step 6: Identify Bias.
+Please see the analysis below. I have identified the bias on the data set:
+- Data set highly bias to race. Black people are very high compare with others in PERP_RACE.
+- Also the same with PERP_SEX, the perpetrator mostly are male. 
+```{r Identify Bias, include=TRUE, cache = FALSE}
+#Check bias on the data
+NYPD_shooting_incident %>% count(PERP_RACE, sort = TRUE)
+NYPD_shooting_incident %>% count(PERP_SEX, sort = TRUE)
+
+#Visualize it
+ggplot(NYPD_shooting_incident, aes(x=as.factor(PERP_RACE), fill=as.factor(PERP_RACE) )) + 
+  geom_bar( ) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position="none")
+#Visualize it
+ggplot(NYPD_shooting_incident, aes(x=as.factor(PERP_SEX), fill=as.factor(PERP_SEX) )) + 
+  geom_bar( ) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(legend.position="none")
+```
+
+
+
